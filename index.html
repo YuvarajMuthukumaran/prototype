@@ -3246,7 +3246,9 @@ function monAdd(act,p,f){const R=S.rounds;R.mon=R.mon||[];R.mon=R.mon.filter(x=>
 function monActE(i){const b=$('monE'+i);if(b)b.style.display=b.style.display==='none'||!b.style.display?'flex':'none';}
 function monEditApply(i,p){const v=$('monEf'+i).value;if(!v){toast('Pick a new frequency first');return;}monAdd('Change',p,v);}
 function monAddForm(){const v=$('monP').value;if(!v){toast('Pick what to monitor');return;}monAdd('Start',v,$('monFs').value);}
-function monQuickAdd(v){if(!v)return;const p=decodeURIComponent(v);monAdd('Start',p,MON_DEFAULT_FREQ[p]||'1-0-1');}
+function monQuickAdd(v){if(!v)return;const [act,p,f]=decodeURIComponent(v).split('|');if(!p||!f)return;monAdd(act==='Change'?'Change':'Start',p,f)}
+function monShowFreq(i){const p=MON_PARAMS[i]?.[0],box=$('monFreqList');if(!p||!box)return;const R=S.rounds,WP=WARDS[R.ward],patient=WP[Math.min(R.idx[R.ward],WP.length-1)],active=monList(patient.id).find(x=>x[0]===p);box.innerHTML=`<div class="mon-freq-title">${p}</div>${MON_FREQ.map(f=>`<button type="button" class="mon-freq-option ${active&&active[1]===f[0]?'current':''}" onclick="monQuickAdd('${encodeURIComponent((active?'Change':'Start')+'|'+p+'|'+f[0])}')">${monLabel(f[0])}</button>`).join('')}`;document.querySelectorAll('.mon-param-option').forEach((b,j)=>b.classList.toggle('on',j===i))}
+function monToggleMenu(){const m=$('monCascadeMenu'),b=$('monCascadeToggle');if(!m||!b)return;const open=m.hidden;m.hidden=!open;b.setAttribute('aria-expanded',String(open));if(open)monShowFreq(0)}
 function invTog(x){const R=S.rounds;R.inv=R.inv||[];const i=R.inv.findIndex(y=>y[0]===x);if(i>=0)R.inv.splice(i,1);else R.inv.push([x,R.invW||'Tomorrow morning']);render();}
 function roundMon(){
   if(!isPsy()) return '';
@@ -3255,14 +3257,7 @@ function roundMon(){
   const n=R.inv.length;
   const tot=n+R.mon.length;
   return `<section class="card"><div class="hd"><h3>Monitoring</h3>${tot?chip(tot+' pending','c-blue'):''}</div>
-    <div class="scroll"><table class="t"><thead><tr><th>Now</th><th>How often</th><th style="text-align:right">Change</th></tr></thead><tbody>
-    ${cur.map((c,i)=>`<tr><td style="font-weight:600">${c[0]}</td><td>${monLabel(c[1])}</td><td style="text-align:right"><div class="row" style="justify-content:flex-end;gap:6px;flex-wrap:wrap">
-      <button class="btn sm" aria-label="Edit ${c[0]}" onclick="monActE(${i})">Edit</button><button class="btn sm" aria-label="Stop ${c[0]}" onclick="monAdd('Stop','${c[0]}','')">Stop</button>
-      <span id="monE${i}" class="row" style="gap:6px;display:none"><select class="input" id="monEf${i}" style="width:auto;min-height:30px;padding:3px 8px" aria-label="New frequency for ${c[0]}">${MON_FREQ.filter(f=>f[0]!==c[1]).map(f=>`<option value="${f[0]}">${monLabel(f[0])}</option>`).join('')}</select><button class="btn sm pri" onclick="monEditApply(${i},'${c[0]}')">Apply</button></span></div></td></tr>`).join('')||'<tr><td colspan="3" class="small muted">Nothing is being monitored.</td></tr>'}
-    </tbody></table></div>
-    <div style="padding:12px 20px;border-top:1px solid var(--line-2);display:flex;flex-direction:column;gap:8px">
-      <div class="lbl">Add monitoring</div>
-      <label class="field"><span class="lbl">Choose monitoring</span><select class="input" aria-label="Choose monitoring" onchange="monQuickAdd(this.value)"><option value="">Select a parameter and frequency…</option>${MON_PARAMS.filter(m=>!cur.some(c=>c[0]===m[0])).map(m=>{const f=MON_DEFAULT_FREQ[m[0]]||'1-0-1';return `<option value="${encodeURIComponent(m[0])}">${m[0]} · ${monLabel(f)}</option>`}).join('')}</select></label></div>
+    <div class="mon-add-top"><div class="lbl" style="margin-bottom:6px">Add monitoring</div><div class="mon-cascade"><button type="button" id="monCascadeToggle" class="input mon-cascade-toggle" aria-haspopup="true" aria-expanded="false" onclick="monToggleMenu()">Choose parameter and frequency <span>▾</span></button><div id="monCascadeMenu" class="mon-cascade-menu" hidden><div class="mon-param-list">${MON_PARAMS.map((m,i)=>`<button type="button" class="mon-param-option ${i===0?'on':''}" onmouseenter="monShowFreq(${i})" onclick="monShowFreq(${i})">${m[0]} <span>›</span></button>`).join('')}</div><div id="monFreqList" class="mon-freq-list"></div></div></div></div>
     <div style="padding:12px 20px;border-top:1px solid var(--line-2);display:flex;flex-direction:column;gap:8px"><div class="row" style="justify-content:space-between"><div class="lbl">Investigations</div>
       <span class="row" style="gap:6px"><span class="tiny muted">Collect</span><select class="input" style="width:auto;min-height:30px;padding:3px 8px" aria-label="Collect" onchange="S.rounds.invW=this.value">${INV_WHEN.map(w=>`<option ${(R.invW||'Tomorrow morning')===w?'selected':''}>${w}</option>`).join('')}</select></span></div>
       <div class="row" style="gap:6px">${INV_LIST.map(x=>`<button class="tog ${R.inv.some(y=>y[0]===x)?'on':''}" style="height:28px;font-size:12px" onclick="invTog('${x}')">${x}</button>`).join('')}</div></div>
@@ -3731,11 +3726,7 @@ function eodGroups(p,dnGroup,seg,mseg){
     cell('Any significant event',[ta('line','None, or what happened')]));
   return box(
     cell('Overall behaviour',[
-      f('Social engagement',seg(id,'soc',[['Adequate','g'],['Minimal','n'],['Withdrawn','a']])),
-      f('Agitation',seg(id,'agit',[['None','g'],['Mild','n'],['Moderate','a'],['Severe','r']])),
-      f('Physical aggression',seg(id,'pagg',[['None','g'],['Towards self','r'],['Towards others','r'],['Property','a']])),
-      f('Verbal aggression',seg(id,'vagg',[['None','g'],['Mild','a'],['Severe','r']])),
-      f('Harm to self',seg(id,'hs',[['None','g'],['Thoughts only','a'],['Self-harm act','r']]))]),
+      f('Behaviour',mseg(id,'overallBeh',['Withdrawn','Overfamiliar','Agitated','Physically aggressive','Verbally aggressive','Self harm']))]),
     cell('Mood and consciousness',[
       f('Mood',seg(id,'mood',[['Calm','g'],['Anxious','a'],['Low','a'],['Irritable','a'],['Elated','a'],['Fluctuating','a']])),
       f('Consciousness',seg(id,'cons',[['Alert','g'],['Drowsy','a'],['Confused','a'],['Disoriented','r']]))]),
@@ -3745,8 +3736,8 @@ function eodGroups(p,dnGroup,seg,mseg){
     cell('Any other event',[f('Event today',mseg(id,'inc',['None','Fall','Aggression incident','Absconding attempt','Refused food','Medical concern','Other'])),ta('line','Event details, only if there was an event')]));
 }
 function eodYday(){return isPsych()?{sleep:'5 to 7 h',meal:'All meals',care:'Independent',bl:'Normal',bw:'Normal',mood:'Calmer',beh:'Calm',part:'Active',sess:['Group therapy'],fam:['None today'],brief:'',line:'No change from yesterday'}
-  :{soc:'Adequate',agit:'None',pagg:'None',vagg:'None',hs:'None',mood:'Calm',cons:'Alert',med:'All taken',se:['None'],inc:['None'],line:''};}
-function eodSum(e){return [e.mood,e.cons||e.sleep,e.med||e.beh,(e.hs&&e.hs!=='None')&&('Harm to self: '+e.hs),(e.pagg&&e.pagg!=='None')&&('Aggression: '+e.pagg)].filter(Boolean);}
+  :{overallBeh:[],mood:'Calm',cons:'Alert',med:'All taken',se:['None'],inc:['None'],line:''};}
+function eodSum(e){const behaviour=(e.overallBeh||[]).length?'Overall behaviour: '+e.overallBeh.join(', '):[e.hs&&e.hs!=='None'?'Harm to self: '+e.hs:'',e.pagg&&e.pagg!=='None'?'Aggression: '+e.pagg:''].filter(Boolean).join(' · ');return [e.mood,e.cons||e.sleep,e.med||e.beh,behaviour].filter(Boolean);}
 
 /* ===== psychologist daily note: one guided component for the patient tab and the all-patients page ===== */
 const PSY_F={
@@ -5666,6 +5657,9 @@ window.__in = true; if(!location.hash || location.hash==='#') location.hash='#/m
 
 
 <!-- ===== Inpatients dropdown: screens grouped into Today, Patients, Alerts; tabs on the page switch inside a group; every link is the same. ===== -->
+<style id="monitoring-collapse-css">
+.mon-add-top{padding:12px 20px;border-bottom:1px solid var(--line-2)}.mon-cascade{position:relative;max-width:540px}.mon-cascade-toggle{width:100%;display:flex;justify-content:space-between;align-items:center;text-align:left;cursor:pointer}.mon-cascade-menu{position:absolute;z-index:30;top:calc(100% + 4px);left:0;width:min(540px,calc(100vw - 48px));display:grid;grid-template-columns:1fr 1.2fr;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px #10182824;overflow:hidden}.mon-cascade-menu[hidden]{display:none}.mon-param-list,.mon-freq-list{max-height:280px;overflow:auto;padding:5px}.mon-param-list{border-right:1px solid var(--line-2);background:#fafbfc}.mon-param-option,.mon-freq-option{width:100%;display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:0;border-radius:6px;background:transparent;text-align:left;font:inherit;font-size:13px;cursor:pointer;color:var(--ink)}.mon-param-option:hover,.mon-param-option.on,.mon-freq-option:hover{background:#eef4ff;color:var(--blue)}.mon-freq-title{padding:7px 10px 9px;font-size:12px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--line-2)}.mon-freq-option.current{color:var(--green);font-weight:700}@media(max-width:520px){.mon-cascade-menu{grid-template-columns:1fr}.mon-param-list{border-right:0;border-bottom:1px solid var(--line-2);max-height:160px}.mon-freq-list{max-height:220px}}
+</style>
 <style id="dashboard-task-summary-css">
 .task-summary-pill{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:999px;padding:5px 11px;font:inherit;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;transition:background .15s,box-shadow .15s}
 .task-summary-pill.patients{background:#f3efff;border-color:#ddd1ff;color:#5635a5}
