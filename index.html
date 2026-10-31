@@ -1418,6 +1418,7 @@ function coNote(pid){const src=isPsych()?'psy':'psych';const n=CONOTE[src][pid];
   if(!n) return `<div class="conote empty"><span class="tiny muted">No note yet today from the ${isPsych()?'psychiatrist':'psychologist'}</span></div>`;
   return `<div class="conote ${n[4]==='Higher'?'risk':''}"><div class="row" style="justify-content:space-between;gap:8px"><span class="tiny" style="font-weight:700;color:var(--violet)">Today from ${who}</span><span class="tiny muted">${n[0]}</span></div><div class="row" style="gap:5px;margin:5px 0">${[n[2],n[3],'Risk: '+n[4]].map(x=>`<span class="chip ${x==='Risk: Higher'?'c-red':'c-grey'}" style="font-size:11px">${x}</span>`).join('')}</div><div class="small" style="color:var(--ink-2)">${n[1]}</div><div class="tiny muted" style="margin-top:4px">View only</div></div>`;}
 function eodNotes(){
+  const dnPtLabel=p=>p.name+'-'+String(p.room||'').replace(/^Room\s*/i,'');
   S.eod=S.eod||{}; const L0=isPsych()?PTS.slice(0,5):PTS; const L=L0.slice().sort((a,b)=>(b.risk?1:0)-(a.risk?1:0));
   const done=L.filter(p=>(S.eod[p.id]||{}).saved).length, pct=Math.round(done/L.length*100);
   const set=(id,k,v)=>`S.eod['${id}']=S.eod['${id}']||{};S.eod['${id}']['${k}']='${v}';render()`;
@@ -1425,10 +1426,10 @@ function eodNotes(){
   const dnGroup=(t,fs)=>`<div class="dngrp"><div class="dng2">${t}</div><div class="dnfields">${fs.map(([l,c])=>`<div class="ef"><span class="lbl">${l}</span>${c}</div>`).join('')}</div></div>`;
   const seg=(id,k,opts)=>{const cur=(S.eod[id]||{})[k];return `<div class="eseg" role="group" aria-label="${k}">${opts.map(([v,c])=>`<button class="${cur===v?'on '+c:''}" onclick="${set(id,k,v)}">${v}</button>`).join('')}</div>`;};
   const row=p=>{const e=S.eod[p.id]||{};
-    if(e.saved) return `<div class="erow saved"><div class="epat">${av(p.ini,34,p.risk?'c-red':'c-blue')}<div><div style="font-weight:600">${p.name}</div><div class="tiny muted">${p.room}</div></div></div>
+    if(e.saved) return `<div class="erow saved"><div class="epat">${av(p.ini,34,p.risk?'c-red':'c-blue')}<div><div style="font-weight:600">${dnPtLabel(p)}</div></div></div>
       <div class="esum">${eodSum(e).map(x=>`<span class="chip ${/Higher|Refused|Harm to self|Aggression/.test(x)?'c-red':'c-grey'}">${x}</span>`).join('')}<span class="small" style="color:var(--ink-2)">${e.line||''}</span></div>
       <div class="eact"><span class="chip c-green">✓ Saved</span><button class="lnk" onclick="S.eod['${p.id}'].saved=false;render()">Edit</button></div></div>`;
-    return `<div class="erow ecard ${p.risk?'risk':''}"><div class="epat">${av(p.ini,34,p.risk?'c-red':'c-blue')}<div><div style="font-weight:600">${p.name}</div><div class="tiny muted">${p.room} · Day ${p.day}</div>${p.risk?'<span class="chip c-red" style="margin-top:4px">High risk</span>':''}</div></div>
+    return `<div class="erow ecard ${p.risk?'risk':''}"><div class="epat">${av(p.ini,34,p.risk?'c-red':'c-blue')}<div><div style="font-weight:600">${dnPtLabel(p)}</div><div class="tiny muted">Day ${p.day}</div>${p.risk?'<span class="chip c-red" style="margin-top:4px">High risk</span>':''}</div></div>
       <div class="efields">
         <div style="grid-column:1/-1">${coNote(p.id)}</div>
         ${eodGroups(p,dnGroup,seg,mseg)}
@@ -1437,7 +1438,7 @@ function eodNotes(){
   return `<section class="card eod"><div class="eodhd"><div><div class="row" style="gap:8px"><h3>End of day notes</h3></div></div>
     <div class="eprog"><div class="row" style="justify-content:space-between"><strong>${done} of ${L.length} done</strong></div><div class="ebar"><i style="width:${pct}%"></i></div></div></div>
     ${(()=>{const pend=L.filter(p=>!(S.eod[p.id]||{}).saved);const idx=Math.min(S.eodI||0,Math.max(0,pend.length-1));const cur=pend[idx];
-      const strip=`<div class="estrip">${L.map(p=>{const sv=(S.eod[p.id]||{}).saved,on=cur&&p.id===cur.id;return `<button class="espill ${sv?'sv':''} ${on?'on':''} ${p.risk?'rk':''}" onclick="${sv?`S.eod['${p.id}'].saved=false;S.eodI=0`:`S.eodI=${pend.indexOf(p)}`};render()">${sv?'✓ ':''}${p.name} · ${p.room}</button>`}).join('')}</div>`;
+      const strip=`<div class="estrip">${L.map(p=>{const sv=(S.eod[p.id]||{}).saved,on=cur&&p.id===cur.id;return `<button class="espill ${sv?'sv':''} ${on?'on':''} ${p.risk?'rk':''}" onclick="${sv?`S.eod['${p.id}'].saved=false;S.eodI=0`:`S.eodI=${pend.indexOf(p)}`};render()">${sv?'✓ ':''}${dnPtLabel(p)}</button>`}).join('')}</div>`;
       if(!cur) return strip+`<div class="edone">All notes saved for today. Tap a name to edit one.</div>`;
       return strip+`<div class="estage">${row(cur)}
         <div class="row" style="justify-content:space-between;margin-top:10px"><button class="btn sm" ${idx===0?'disabled':''} onclick="S.eodI=${idx-1};render()">‹ Previous</button><button class="btn sm" ${idx>=pend.length-1?'disabled':''} onclick="S.eodI=${idx+1};render()">Skip for now ›</button></div></div>`;})()}</section>`;
