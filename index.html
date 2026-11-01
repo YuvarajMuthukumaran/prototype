@@ -1258,7 +1258,7 @@ function renderSide(route){
     ${nav('#/existing/Dashboard',icon.dash,'Dashboard',false)}
     ${nav('#/existing/All Patients',icon.users,'All Patients',false)}
     ${nav('#/myday',icon.bed,'Inpatients',inIpd,'<span class="newtag">NEW</span>')}
-    ${inIpd?sub('#/myday','Inpatient dashboard','myday')+(isWard()?'':sub('#/rounds','Rounds','rounds'))+(((isPsy()&&!isLead())||isPsych())?sub('#/notes','Daily notes','notes'):'')+(S.role==='rmo'?sub('#/nursing','Nursing chart','nursing')+sub('#/handover','Handover','handover'):'')+sub('#/inpatients',isLead()?'Floor inpatients':isWard()?'Ward inpatients':'My inpatients','inpatients')+(['lead','psychiatrist','psychologist'].includes(S.role)?sub('#/clinical-docs','Clinical documentation','clinical-docs'):'')+V3.subs(sec):''}
+    ${inIpd?sub('#/myday','Inpatient dashboard','myday')+(isWard()?'':sub('#/rounds','Rounds','rounds'))+(((isPsy()&&!isLead())||isPsych())?sub('#/notes','Daily notes','notes'):'')+(S.role!=='nurse'?sub('#/nursing','Nursing chart','nursing'):'')+(S.role==='rmo'?sub('#/handover','Handover','handover'):'')+sub('#/inpatients',isLead()?'Floor inpatients':isWard()?'Ward inpatients':'My inpatients','inpatients')+(['lead','psychiatrist','psychologist'].includes(S.role)?sub('#/clinical-docs','Clinical documentation','clinical-docs'):'')+V3.subs(sec):''}
     ${S.role==='rmo'?'':nav('#/existing/My Calendar',icon.cal,'My Calendar',false)}
     ${S.role==='rmo'?'':nav('#/existing/Schedule',icon.clock,'Schedule',false)}
     ${nav('#/existing/Messages',icon.msg,'Messages',false)}
@@ -3102,8 +3102,10 @@ function nFocus(pid){
 function render(){
   const r=(location.hash||'#/myday').slice(2).split('/');
   if(r[0]!=='nursing'&&S.nFocus){S.nFocus=null;lst('nurse').q='';}
+  if(r[0]==='timeline'){window.__histNav=true;location.replace('#/patient/neel/overview');return;}
+  if(r[0]!=='patient')window.__histNav=false;
   V3.pre();if(S.role==='rmo')rmoInit();rmoLocBar();scaleBar();
-  if(V3.deny(r)||(r[0]==='handover'&&S.role!=='rmo')||(r[0]==='patient'&&S.role==='rmo'&&!inScope(r[1]))||(r[0]==='nursing'&&S.role!=='rmo'&&S.role!=='nurse')||(isWard()&&(r[0]==='rounds'||r[0]==='notes'))||(r[0]==='notes'&&!((isPsy()&&!isLead())||isPsych()))){go('#/myday');return;}
+  if(V3.deny(r)||(r[0]==='handover'&&S.role!=='rmo')||(r[0]==='patient'&&S.role==='rmo'&&!inScope(r[1]))||(isWard()&&(r[0]==='rounds'||r[0]==='notes'))||(r[0]==='notes'&&!((isPsy()&&!isLead())||isPsych()))){go('#/myday');return;}
   $('app').classList.toggle('compact', r[0]==='patient'||r[0]==='rounds'||r[0]==='notes');
   renderSide(r);
   let html='';
@@ -3412,10 +3414,10 @@ function dietSave(){
 }
 function vNurseView(){
   let h=vNurseDay();
-  if(S.role==='rmo'){$('title').textContent='Nursing chart';
-    h=floorTabs()+h;
+  if(S.role!=='nurse'){$('title').textContent='Nursing chart';
+    if(S.role==='rmo')h=floorTabs()+h;
     h=h.replace('Shift board','Nursing chart').replace(' · Sister Rekha · ',' · ')
-       .replace(`<button class="btn soft" onclick="nHandoverModal()">Handover note</button><button class="btn pri" onclick="toast('Starts the 2 pm medicine round, patient by patient')">Start 2 pm medicine round</button>`,`<button class="btn pri" onclick="addMedModal()">Add medication</button>`);}
+       .replace(`<button class="btn soft" onclick="nHandoverModal()">Handover note</button><button class="btn pri" onclick="toast('Starts the 2 pm medicine round, patient by patient')">Start 2 pm medicine round</button>`,S.role==='psychologist'?'':`<button class="btn pri" onclick="addMedModal()">Add medication</button>`);}
   return h;
 }
 
@@ -5800,7 +5802,7 @@ table.t td,table.pt td{padding-top:13px;padding-bottom:13px}
     '#/myday':['home','blue','Today'],
     '#/rounds':['rounds','green','Rounds'],
     '#/notes':['notes','teal','Daily notes'],
-    '#/nursing':['chart','green','Chart'],
+    '#/nursing':['chart','green','Nursing chart'],
     '#/handover':['swap','amber','Handover'],
     '#/inpatients':['bed','violet','List'],
     '#/floor/flow':['floor','green','Floor'],
@@ -5858,7 +5860,7 @@ table.t td,table.pt td{padding-top:13px;padding-bottom:13px}
     const s = (location.hash||'#/myday').slice(2).split('/')[0], k = groupOf(s); if(!k) return;
     const g = GROUPS.find(x => x.k === k), m = LAST.filter(x => g.secs.includes(sec(x.h))).sort((a,b) => g.secs.indexOf(sec(a.h)) - g.secs.indexOf(sec(b.h)));
     if(m.length < 2) return;
-    const curSec = s === 'patient' ? 'inpatients' : s;
+    const curSec = s === 'patient' ? (window.__histNav ? 'timeline' : 'inpatients') : s;
     v.insertAdjacentHTML('afterbegin', `<nav class="sgtabs" aria-label="${g.w}">${m.map(x => { const d = MAP[x.h] || ['home','grey',x.full]; const on = sec(x.h) === curSec; return `<button class="sg-${d[1]}${on?' on':''}" title="${x.full}" ${on?'aria-current="page"':''} onclick="go('${x.h}')"><span class="si">${svg(d[0])}</span>${d[2]}</button>`; }).join('')}</nav>`);
   }
   /* Icons on the patient file tabs */
@@ -6061,6 +6063,9 @@ table.t td,table.pt td{padding-top:13px;padding-bottom:13px}
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style id="ward-type">
 body,button,input,select,textarea{font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+.shl b,.kbd{font-family:inherit}
+.mini-chips .tog{font-weight:500}
+.mini-chips .tog.on{font-weight:600}
 body{font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;font-feature-settings:'tnum' 0}
 /* labels */
 .lbl,table.t th,table.mar th,.nb th,.dnl,.dng2,.sh,.tg,.v3tl-d,.wkhd .lbl{text-transform:none!important;letter-spacing:0!important;font-size:13px!important;font-weight:600!important}
